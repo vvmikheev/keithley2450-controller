@@ -4,29 +4,6 @@ from plot_fig import *
 from cycling import cycle
 import time, os
 import datetime
-import serial
-
-ser = serial.Serial(
-    port='COM4',
-    baudrate=115200,
-    parity=serial.PARITY_ODD,
-    stopbits=serial.STOPBITS_TWO,
-    bytesize=serial.SEVENBITS
-)
-
-def connect_ebic(ser):
-    disconnect(ser)
-    ser.write("P12.write(1)\n".encode("utf-8"))
-
-
-def connect_pv(ser):
-    disconnect(ser)
-    ser.write("P13.write(1)\n".encode("utf-8"))
-
-
-def disconnect(ser):
-    ser.write("P12.write(0)\n".encode("utf-8"))
-    ser.write("P13.write(0)\n".encode("utf-8"))
 
 
 time.sleep(0)
@@ -70,8 +47,6 @@ params = {
 
 with SMUDevice(device) as smu:
         smu.set_terminal(terminal)
-        connect_pv(ser)
-
         if ifcycle:
             cycle(smu, 100, params['Vf'], params['Vs'])
             # cycle(smu, 10, params['Vf'], params['Vs'])
@@ -85,7 +60,6 @@ with SMUDevice(device) as smu:
 
         smu.check_for_errors()
         data = smu.get_traces()
-        connect_ebic(ser)
 
 plot_fig(data, params, area, save=save, path=dir, name=save_name)
 
