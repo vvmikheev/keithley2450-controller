@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import h5py
+import json
+
 
 def plot_average(data, params, area, save=False, path=None, name=None):
     plt.figure(figsize=(12, 9))
@@ -176,13 +177,12 @@ def plot_fig(data, params, area, save=False, path=None, name=None):
     plt.show()
 
 
-def save_data(data, path=None, name=None):
+def save_data(data, path, name):
+    name = name + '.json'
     try:
-        with h5py.File(os.path.join(path, name), 'w') as f:
-            for key in data.keys():
-                f.create_dataset(key, data=data[key])
+        with open(os.path.join(path, name), 'w') as f:
+            json.dump(data, f, indent=4)
     except OSError:
         os.makedirs(path)
-        with h5py.File(os.path.join(path, name), 'w') as f:
-            for key in data.keys():
-                f.create_dataset(key, data=data[key])
+        with open(os.path.join(path, name), 'w') as f:
+            json.dump(data, f, indent=4)

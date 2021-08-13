@@ -42,5 +42,4 @@ smu_bottom.close()
 converted = {'time': data['time'], 'source': data['voltage'], 'reading': - np.array(data['i_bottom'])}
 plot_fig(converted, params, area, save=save, path=dir, name=save_name)
 
-with open(os.path.join(dir, save_name + '.json'), 'w') as file:
-    json.dump([params, data], file, indent=4)
+save_data([params, data], dir, save_name)
