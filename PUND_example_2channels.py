@@ -4,6 +4,7 @@ from PUND_2_channels import mesure_PUND, cycle
 import datetime
 from plot_fig import *
 import time
+import json
 
 time.sleep(3)
 
@@ -24,7 +25,7 @@ params = {
         'hold': 20,
         'space': 20,
         'n_cycles': 2,
-        'range_top': 1e-2,
+        'range_top': 1e-4,
         'range_bottom': 1e-6
         }
 
@@ -32,11 +33,14 @@ params = {
 smu_top.set_terminal('front')
 smu_bottom.set_terminal('front')
 
-cycle(smu_top, smu_bottom, params, 100)
+# cycle(smu_top, smu_bottom, params, 100)
 data = mesure_PUND(smu_top, smu_bottom, params)
+
+smu_top.close()
+smu_bottom.close()
 
 converted = {'time': data['time'], 'source': data['voltage'], 'reading': - np.array(data['i_bottom'])}
 plot_fig(converted, params, area, save=save, path=dir, name=save_name)
 
-smu_top.close()
-smu_bottom.close()
+with open(os.path.join(dir, save_name + '.json'), 'w') as file:
+    json.dump([params, data], file, indent=4)

@@ -46,10 +46,9 @@ if __name__ == '__main__':
     params = {
         'Vf': 2.5,
         'Vs': -2.5,
-        'dt': 1e-5,
-        'rise': 1e-3,
-        'hold': 1e-3,
-        'space': 1e-3
+        'rise': 10,
+        'hold': 20,
+        'space': 20
     }
     v = np.array(create_waveform(params))
     t = np.arange(0, len(v) * params['dt'], params['dt'])

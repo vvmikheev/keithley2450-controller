@@ -7,10 +7,10 @@ import datetime
 
 
 time.sleep(0)
-device = 'SMU'
+device = 'SMU1'
 
-ifcycle = True
-terminal = 'rear'
+ifcycle = False
+terminal = 'front'
 
 area = 25 ** 2 * 1e-8
 save = True
@@ -33,8 +33,8 @@ rise/hold/space time is to change the number of measurements.
 """
 
 params = {
-        'Vf': -3,
-        'Vs': 3,
+        'Vf': -2.5,
+        'Vs': 2.5,
         'rise': 20,
         'hold': 2,
         'space': 15,
@@ -51,7 +51,7 @@ with SMUDevice(device) as smu:
             cycle(smu, 100, params['Vf'], params['Vs'])
             # cycle(smu, 10, params['Vf'], params['Vs'])
         smu.setup_sense_subsystem(compl=1e-4, range=1e-4, int_time=0, counts=1)
-
+        smu.setup_source_subsystem()
         waveform = create_waveform(params, by_rate=True)
         smu.setup_voltage_list_sweep(waveform, params['n_cycles'])
 

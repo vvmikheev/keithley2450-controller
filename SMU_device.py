@@ -7,9 +7,9 @@ class SMUDevice:
     def __init__(self, instruments_name):
         self.device = None
         self.instr_name = instruments_name
+        self.connect(verbose=False)
 
     def __enter__(self):
-        self.connect(verbose=False)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -68,14 +68,36 @@ class SMUDevice:
         self.device.write(f'SENS:AZER:ONCE')
         self.device.write(f'SENS:CURR:AZER OFF')
         self.device.write(f'SENS:CURR:NPLC {max(0.01, nplc_time)}')
-        self.device.write(f'SOUR:VOLT:ILIM {compl}')
-        if counts != 1:
-            self.device.write(f'SENS:COUNT {counts}')
+
         if autorange:
             self.device.write(f'SENS:CURR:RANG:AUTO 1')
         else:
             self.device.write(f'SENS:CURR:RANG:AUTO 0')
             self.device.write(f'SENS:CURR:RANG {range}')
+
+        self.device.write(f'SOUR:VOLT:ILIM {compl}')
+        if counts != 1:
+            self.device.write(f'SENS:COUNT {counts}')
+
+    def setup_source_subsystem(self, range=20, autorange=False, readback=False, delay=0):
+        self.device.write(f'SOUR:FUNC VOLT')
+        self.device.write(f'SOUR:VOLT:RANG {range}')
+        if autorange:
+            self.device.write(f'SOUR:VOLT:RANG:AUTO ON')
+        else:
+            self.device.write(f'SOUR:VOLT:RANG:AUTO OFF')
+
+        if delay is not None:
+            self.device.write(f'SOUR:VOLT:DEL:AUTO OFF')
+            self.device.write(f'SOUR:VOLT:DEL 0.001')
+            self.device.write(f'SOUR:VOLT:DEL {delay}')
+        else:
+            self.device.write(f'SOUR:VOLT:DEL:AUTO ON')
+
+        if readback:
+            self.device.write(f'SOUR:VOLT:READ:BACK ON')
+        else:
+            self.device.write(f'SOUR:VOLT:READ:BACK OFF')
 
     def setup_staircase_sweep(self, v_from, v_to, n_steps, delay=1e-4):
         """
@@ -85,13 +107,12 @@ class SMUDevice:
             :param n_steps: int (number of steps)
             :param delay: float (delay between a voltage increase and a measurement)
         """
-        self.device.write(f'SOUR:VOLT:RANG:AUTO ON')
-        self.device.write(f'SOUR:VOLT:READ:BACK ON')
         self.device.write(f'SOUR:SWE:VOLT:LIN {v_from}, {v_to}, {n_steps}, {delay}, 1, AUTO')
 
-    def setup_voltage_list_sweep(self, waveform, n_times, dt=0, read_back=False):
+    def setup_voltage_list_sweep(self, waveform, n_times):
         buffer_overrun = False
         waveforms = None
+        n_points = len(waveform)
 
         if len(waveform) > 100:
             waveform_np = np.array(waveform)
@@ -102,17 +123,6 @@ class SMUDevice:
         waveform = map(str, waveform)
         waveform = ', '.join(waveform)
 
-        self.device.write(f'SOUR:FUNC VOLT')
-        self.device.write(f'SOUR:VOLT:RANG 20')
-        self.device.write(f'SOUR:VOLT:RANG:AUTO OFF')
-        self.device.write(f'SOUR:VOLT:DEL:AUTO OFF')
-        self.device.write(f'SOUR:VOLT:DEL 0.001')
-        self.device.write(f'SOUR:VOLT:DEL 0')
-
-        if read_back:
-            self.device.write(f'SOUR:VOLT:READ:BACK ON')
-        else:
-            self.device.write(f'SOUR:VOLT:READ:BACK OFF')
         self.device.write(f'SOUR:LIST:VOLT {waveform}')
 
         if buffer_overrun:
@@ -121,7 +131,7 @@ class SMUDevice:
                 waveform = ', '.join(waveform)
                 self.device.write(f'SOUR:LIST:VOLT:APP {waveform}')
 
-        self.device.write(f'SOUR:SWE:VOLT:LIST 1, {dt}, {n_times}')
+        self._define_sweep_trigger_model(n_points, n_times)
 
     def check_for_errors(self):
         """
@@ -151,4 +161,20 @@ class SMUDevice:
             self.device.write('ROUT:TERM FRON')
         else:
             raise Exception(f"Expected 'rear' or 'front', found {name}")
+
+    def close(self):
+        self.device.close()
+
+    def _define_sweep_trigger_model(self, n_points, n_times, configuration_list="VoltCustomSweepList"):
+        self.device.write('TRIG:LOAD "Empty"')
+        self.device.write('TRIG:BLOC:BUFF:CLEAR 1')
+        self.device.write(f'TRIG:BLOC:CONF:RECALL 2, "{configuration_list}"')
+        self.device.write('TRIG:BLOC:SOUR:STAT 3, ON')
+        self.device.write('TRIG:BLOC:BRAN:ALW 4, 6')
+        self.device.write(f'TRIG:BLOC:CONF:NEXT 5, "{configuration_list}"')
+        self.device.write('TRIG:BLOC:MEAS 6')
+        self.device.write(f'TRIG:BLOC:BRAN:COUN 7, {n_points}, 5')
+        self.device.write(f'TRIG:BLOC:BRAN:COUN 8, {n_times}, 2')
+        self.device.write('TRIG:BLOC:SOUR:STAT 9, OFF')
+        self.device.write('TRIG:BLOC:BRAN:ALW 10, 0')
 

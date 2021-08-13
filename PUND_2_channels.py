@@ -30,8 +30,8 @@ def _bottom_smu_trigger_model(smu):
     # event channels (must be equal to channels in _top_smu_trigger_model)
     smu.write_command(':DIG:LINE1:MODE TRIG, IN')
     smu.write_command(':DIG:LINE2:MODE TRIG, IN')
-    start_event = 'DIG 1'  # start measurements
-    stop_event = 'DIG 2'  # measure until
+    start_event = 'DIG1'  # start measurements
+    stop_event = 'DIG2'  # measure until
 
     smu.device.write('TRIG:LOAD "Empty"')
     smu.device.write('TRIG:BLOC:BUFF:CLEAR 1')
@@ -46,9 +46,20 @@ def _bottom_smu_trigger_model(smu):
 
 
 def mesure_PUND(smu_top, smu_bottom, params):
+    smu_top.setup_sense_subsystem(compl=params['range_top'], range=params['range_top'], int_time=0, counts=1)
+    smu_top.setup_source_subsystem()
 
-    waveform = create_waveform(params, by_rate=True)
+    smu_bottom.setup_sense_subsystem(compl=params['range_bottom'], range=params['range_bottom'], int_time=0, counts=1)
+    smu_bottom.setup_source_subsystem()
+
+    try:
+        _ = params['growth_rate']
+        waveform = create_waveform(params, by_rate=True)
+    except KeyError:
+        waveform = create_waveform(params, by_rate=False)
+
     smu_top.setup_voltage_list_sweep(waveform, params['n_cycles'])
+    smu_bottom.setup_voltage_list_sweep([0], params['n_cycles'])
 
     _top_smu_trigger_model(smu_top, len(waveform), params['n_cycles'])
     _bottom_smu_trigger_model(smu_bottom)
@@ -62,3 +73,33 @@ def mesure_PUND(smu_top, smu_bottom, params):
     data_bottom = smu_bottom.get_traces()
     data_top = smu_top.get_traces()
 
+    voltage_interpolator = interp1d(data_top['time'], data_top['source'], bounds_error=False, fill_value=(0, 0))
+    voltage = list(voltage_interpolator(data_bottom['time']))
+    current_interpolator = interp1d(data_top['time'], data_top['reading'], bounds_error=False, fill_value=(0, 0))
+    c_top = list(current_interpolator(data_bottom['time']))
+    data = {'voltage': voltage, 'i_top': c_top, 'time': data_bottom['time'], 'i_bottom':   data_bottom['reading']}
+
+    return data
+
+
+def cycle(smu_top, smu_bottom, params, n_cycles):
+    smu_bottom.setup_source_subsystem(readback=True)
+    smu_bottom.write_command('OUTP:VOLT:SMOD NORM')
+
+    waveform = [0, params['Vf'], params['Vf'], 0, 0, params['Vs'], params['Vs'], 0]
+    smu_top.setup_sense_subsystem(int_time=0, compl=1e-4, range=1e-4)
+    smu_top.setup_voltage_list_sweep(waveform, n_cycles)
+
+    smu_top.write_command('TRIG:LOAD "Empty"')
+    smu_top.write_command('TRIG:BLOC:BUFF:CLEAR 1')
+    smu_top.write_command('TRIG:BLOC:CONF:RECALL 2, "VoltCustomSweepList"')
+    smu_top.write_command('TRIG:BLOC:SOUR:STAT 3, ON')
+    smu_top.write_command('TRIG:BLOC:CONF:NEXT 4, "VoltCustomSweepList"')
+    smu_top.write_command(f'TRIG:BLOC:BRAN:COUN 5, {len(waveform) * n_cycles}, 4 ')
+    smu_top.write_command('TRIG:BLOC:SOUR:STAT 6, OFF')
+    smu_top.write_command('TRIG:BLOC:BRAN:ALW 7, 0')
+
+    smu_top.write_command('INIT')
+    smu_top.check_for_errors()
+
+    smu_top.wait()

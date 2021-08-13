@@ -15,7 +15,7 @@ def cycle(smu, n_times, vf, vs):
 
     smu.write_command('TRIG:LOAD "Empty"')
     smu.write_command('TRIG:BLOC:BUFF:CLEAR 1')
-    smu.write_command('TRIG:BLOCK:CONF:RECALL 2, "VoltCustomSweepList"')
+    smu.write_command('TRIG:BLOC:CONF:RECALL 2, "VoltCustomSweepList"')
     smu.write_command('TRIG:BLOC:SOUR:STAT 3, ON')
     smu.write_command('TRIG:BLOC:CONF:NEXT 4, "VoltCustomSweepList"')
     smu.write_command(f'TRIG:BLOC:BRAN:COUN 5, {len(waveform) * params.get("n_cycles")}, 4 ')
